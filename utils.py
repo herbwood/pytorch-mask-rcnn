@@ -1,11 +1,7 @@
+import math
 import torch
 from torch import Tensor
-from torch import nn
-from typing import List, Tuple, Dict
-from collections import OrderedDict
-import math
-
-from torchvision.ops.misc import FrozenBatchNorm2d
+from typing import List, Tuple
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -13,86 +9,23 @@ except ImportError:
     from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
 class ImageList(object):
-    """
-    Structure that holds a list of images (of possibly
-    varying sizes) as a single tensor.
-    This works by padding the images to the same size,
-    and storing in a field the original sizes of each image
-    """
-    def __init__(self, tensors: Tensor,
-                 image_sizes: List[Tuple[int, int]]):
-        """
-        Args:
-            tensors (tensor)
-            image_sizes (list[tuple[int, int]])
-        """
+    def __init__(self, tensors: Tensor, image_sizes: List[Tuple[int, int]]):
         self.tensors = tensors
         self.image_sizes = image_sizes
 
-    def to(self,
-           device: torch.device) -> 'ImageList':
+    def to(self, device: torch.device) -> 'ImageList':
         cast_tensor = self.tensors.to(device)
         return ImageList(cast_tensor, self.image_sizes)
 
 
-class IntermediateLayerGetter(nn.ModuleDict):
-
-    def __init__(self, model: nn.Module, return_layers: Dict[str, str]) -> None:
-        if not set(return_layers).issubset([name for name, _ in model.named_children()]):
-            raise ValueError("return_layers are not present in model")
-        orig_return_layers = return_layers
-        return_layers = {str(k): str(v) for k, v in return_layers.items()}
-        layers = OrderedDict()
-        for name, module in model.named_children():
-            layers[name] = module
-            if name in return_layers:
-                del return_layers[name]
-            if not return_layers:
-                break
-
-        super(IntermediateLayerGetter, self).__init__(layers)
-        self.return_layers = orig_return_layers
-
-    def forward(self, x):
-        out = OrderedDict()
-        for name, module in self.items():
-            x = module(x)
-            if name in self.return_layers:
-                out_name = self.return_layers[name]
-                out[out_name] = x
-        return out
-
-
 class BalancedPositiveNegativeSampler(object):
-    """
-    This class samples batches, ensuring that they contain a fixed proportion of positives
-    """
 
     def __init__(self, batch_size_per_image, positive_fraction):
-        # type: (int, float) -> None
-        """
-        Args:
-            batch_size_per_image (int): number of elements to be selected per image
-            positive_fraction (float): percentace of positive elements per batch
-        """
         self.batch_size_per_image = batch_size_per_image
         self.positive_fraction = positive_fraction
 
     def __call__(self, matched_idxs):
-        # type: (List[Tensor]) -> Tuple[List[Tensor], List[Tensor]]
-        """
-        Args:
-            matched idxs: list of tensors containing -1, 0 or positive values.
-                Each tensor corresponds to a specific image.
-                -1 values are ignored, 0 are considered as negatives and > 0 as
-                positives.
-        Returns:
-            pos_idx (list[tensor])
-            neg_idx (list[tensor])
-        Returns two lists of binary masks for each image.
-        The first list contains the positive elements that were selected,
-        and the second list the negative example.
-        """
+
         pos_idx = []
         neg_idx = []
         for matched_idxs_per_image in matched_idxs:
@@ -132,15 +65,6 @@ class BalancedPositiveNegativeSampler(object):
 
 @torch.jit._script_if_tracing
 def encode_boxes(reference_boxes, proposals, weights):
-    # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> torch.Tensor
-    """
-    Encode a set of proposals with respect to some
-    reference boxes
-    Args:
-        reference_boxes (Tensor): reference boxes
-        proposals (Tensor): boxes to be encoded
-        weights (Tensor[4]): the weights for ``(x, y, w, h)``
-    """
 
     # perform some unpacking to make it JIT-fusion friendly
     wx = weights[0]
@@ -179,18 +103,7 @@ def encode_boxes(reference_boxes, proposals, weights):
 
 
 class BoxCoder(object):
-    """
-    This class encodes and decodes a set of bounding boxes into
-    the representation used for training the regressors.
-    """
-
     def __init__(self, weights, bbox_xform_clip=math.log(1000. / 16)):
-        # type: (Tuple[float, float, float, float], float) -> None
-        """
-        Args:
-            weights (4-element tuple)
-            bbox_xform_clip (float)
-        """
         self.weights = weights
         self.bbox_xform_clip = bbox_xform_clip
 
@@ -203,13 +116,6 @@ class BoxCoder(object):
         return targets.split(boxes_per_image, 0)
 
     def encode_single(self, reference_boxes, proposals):
-        """
-        Encode a set of proposals with respect to some
-        reference boxes
-        Args:
-            reference_boxes (Tensor): reference boxes
-            proposals (Tensor): boxes to be encoded
-        """
         dtype = reference_boxes.dtype
         device = reference_boxes.device
         weights = torch.as_tensor(self.weights, dtype=dtype, device=device)
@@ -229,20 +135,12 @@ class BoxCoder(object):
         if box_sum > 0:
             rel_codes = rel_codes.reshape(box_sum, -1)
         pred_boxes = self.decode_single(
-            rel_codes, concat_boxes
-        )
+            rel_codes, concat_boxes)
         if box_sum > 0:
             pred_boxes = pred_boxes.reshape(box_sum, -1, 4)
         return pred_boxes
 
     def decode_single(self, rel_codes, boxes):
-        """
-        From a set of original boxes and encoded relative box offsets,
-        get the decoded boxes.
-        Args:
-            rel_codes (Tensor): encoded boxes
-            boxes (Tensor): reference boxes.
-        """
 
         boxes = boxes.to(rel_codes.dtype)
 
@@ -275,41 +173,11 @@ class BoxCoder(object):
 
 
 class Matcher(object):
-    """
-    This class assigns to each predicted "element" (e.g., a box) a ground-truth
-    element. Each predicted element will have exactly zero or one matches; each
-    ground-truth element may be assigned to zero or more predicted elements.
-    Matching is based on the MxN match_quality_matrix, that characterizes how well
-    each (ground-truth, predicted)-pair match. For example, if the elements are
-    boxes, the matrix may contain box IoU overlap values.
-    The matcher returns a tensor of size N containing the index of the ground-truth
-    element m that matches to prediction n. If there is no match, a negative value
-    is returned.
-    """
 
     BELOW_LOW_THRESHOLD = -1
     BETWEEN_THRESHOLDS = -2
 
-    __annotations__ = {
-        'BELOW_LOW_THRESHOLD': int,
-        'BETWEEN_THRESHOLDS': int,
-    }
-
     def __init__(self, high_threshold, low_threshold, allow_low_quality_matches=False):
-        # type: (float, float, bool) -> None
-        """
-        Args:
-            high_threshold (float): quality values greater than or equal to
-                this value are candidate matches.
-            low_threshold (float): a lower quality threshold used to stratify
-                matches into three levels:
-                1) matches >= high_threshold
-                2) BETWEEN_THRESHOLDS matches in [low_threshold, high_threshold)
-                3) BELOW_LOW_THRESHOLD matches in [0, low_threshold)
-            allow_low_quality_matches (bool): if True, produce additional matches
-                for predictions that have only low-quality match candidates. See
-                set_low_quality_matches_ for more details.
-        """
         self.BELOW_LOW_THRESHOLD = -1
         self.BETWEEN_THRESHOLDS = -2
         assert low_threshold <= high_threshold
@@ -318,28 +186,6 @@ class Matcher(object):
         self.allow_low_quality_matches = allow_low_quality_matches
 
     def __call__(self, match_quality_matrix):
-        """
-        Args:
-            match_quality_matrix (Tensor[float]): an MxN tensor, containing the
-            pairwise quality between M ground-truth elements and N predicted elements.
-        Returns:
-            matches (Tensor[int64]): an N tensor where N[i] is a matched gt in
-            [0, M - 1] or a negative value indicating that prediction i could not
-            be matched.
-        """
-        if match_quality_matrix.numel() == 0:
-            # empty targets or proposals not supported during training
-            if match_quality_matrix.shape[0] == 0:
-                raise ValueError(
-                    "No ground-truth boxes available for one of the images "
-                    "during training")
-            else:
-                raise ValueError(
-                    "No proposal boxes available for one of the images "
-                    "during training")
-
-        # match_quality_matrix is M (gt) x N (predicted)
-        # Max over gt elements (dim 0) to find best gt candidate for each prediction
         matched_vals, matches = match_quality_matrix.max(dim=0)
         if self.allow_low_quality_matches:
             all_matches = matches.clone()
@@ -361,62 +207,22 @@ class Matcher(object):
         return matches
 
     def set_low_quality_matches_(self, matches, all_matches, match_quality_matrix):
-        """
-        Produce additional matches for predictions that have only low-quality matches.
-        Specifically, for each ground-truth find the set of predictions that have
-        maximum overlap with it (including ties); for each prediction in that set, if
-        it is unmatched, then match it to the ground-truth with which it has the highest
-        quality value.
-        """
-        # For each gt, find the prediction with which it has highest quality
+
         highest_quality_foreach_gt, _ = match_quality_matrix.max(dim=1)
         # Find highest quality match available, even if it is low, including ties
         gt_pred_pairs_of_highest_quality = torch.where(
             match_quality_matrix == highest_quality_foreach_gt[:, None]
         )
-        # Example gt_pred_pairs_of_highest_quality:
-        #   tensor([[    0, 39796],
-        #           [    1, 32055],
-        #           [    1, 32070],
-        #           [    2, 39190],
-        #           [    2, 40255],
-        #           [    3, 40390],
-        #           [    3, 41455],
-        #           [    4, 45470],
-        #           [    5, 45325],
-        #           [    5, 46390]])
-        # Each row is a (gt index, prediction index)
-        # Note how gt items 1, 2, 3, and 5 each have two ties
 
         pred_inds_to_update = gt_pred_pairs_of_highest_quality[1]
         matches[pred_inds_to_update] = all_matches[pred_inds_to_update]
 
 
 def smooth_l1_loss(input, target, beta: float = 1. / 9, size_average: bool = True):
-    """
-    very similar to the smooth_l1_loss from pytorch, but with
-    the extra beta parameter
-    """
+
     n = torch.abs(input - target)
     cond = n < beta
     loss = torch.where(cond, 0.5 * n ** 2 / beta, n - 0.5 * beta)
     if size_average:
         return loss.mean()
     return loss.sum()
-
-
-def overwrite_eps(model, eps):
-    """
-    This method overwrites the default eps values of all the
-    FrozenBatchNorm2d layers of the model with the provided value.
-    This is necessary to address the BC-breaking change introduced
-    by the bug-fix at pytorch/vision#2933. The overwrite is applied
-    only when the pretrained weights are loaded to maintain compatibility
-    with previous versions.
-    Args:
-        model (nn.Module): The model on which we perform the overwrite.
-        eps (float): The new value of eps.
-    """
-    for module in model.modules():
-        if isinstance(module, FrozenBatchNorm2d):
-            module.eps = eps

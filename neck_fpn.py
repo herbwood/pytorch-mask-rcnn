@@ -42,14 +42,3 @@ class FPN(nn.Module):
 
 def fpn(outputs):
     return FPN(outputs)
-
-if __name__ == "__main__":
-    from backbone_resnet import resnet101
-    input = torch.randn(1, 3, 64, 64)
-    backbone = resnet101()
-    outputs = backbone(input)
-
-    neck = fpn(outputs)
-    neck_outputs = neck(outputs)
-    for output in neck_outputs:
-        print(output.size())

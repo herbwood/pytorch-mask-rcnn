@@ -145,11 +145,3 @@ def resnet50(pretrained=False, progress=True, **kwargs):
 def resnet101(pretrained=False, progress=True, **kwargs):
     return pretrained_resnet('resnet101', Bottleneck, [3, 4, 23, 3], pretrained, progress,
                              **kwargs)
-
-
-if __name__ == "__main__":
-    input = torch.randn((1, 3, 224, 224))
-    model = resnet101()
-    output = model(input)
-    for op in output:
-        print(op.shape)

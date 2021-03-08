@@ -1,7 +1,6 @@
 import torch
 from torch import nn, Tensor
 from typing import List
-from .utils import ImageList
 
 class AnchorGenerator(nn.Module):
 
@@ -105,7 +104,7 @@ class AnchorGenerator(nn.Module):
         return anchors
 
     def forward(self,
-                image_list: ImageList,
+                image_list,
                 feature_maps: List[Tensor]) -> List[Tensor]:
 
         grid_sizes = list([feature_map.shape[-2:] for feature_map in feature_maps])

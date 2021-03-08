@@ -1,12 +1,10 @@
 import torch
-import torchvision
 import torch.nn.functional as F
 from torch import nn, Tensor
 from torchvision.ops import boxes as box_ops
 from torchvision.ops import roi_align
-import utils as det_utils
 from typing import Optional, List, Dict, Tuple
-from torchvision.ops.boxes import box_iou, clip_boxes_to_image, remove_small_boxes, batched_nms
+from torchvision.ops.boxes import box_iou
 from utils import BoxCoder, Matcher, BalancedPositiveNegativeSampler
 
 
