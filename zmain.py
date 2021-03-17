@@ -1,7 +1,11 @@
-import cv2
 import numpy as np
 import random
 import torch
+import cv2
+import argparse
+from PIL import Image
+from torchvision.transforms import transforms as transforms
+from mask_rcnn import maskrcnn_resnet50_fpn
 
 coco_names = [
     '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -76,48 +80,41 @@ def draw_segmentation_map(image, masks, boxes, labels):
 
     return image
 
-import torch
-import torchvision
-import cv2
-import argparse
-from PIL import Image
-from torchvision.transforms import transforms as transforms
-from mask_rcnn import maskrcnn_resnet50_fpn
+if __name__ == "__main__":
+    # initialize the model
+    # model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True, progress=True,
+    #                                                            num_classes=91)
+    model = maskrcnn_resnet50_fpn(pretrained=True, progress=True, num_classes=91)
 
-# initialize the model
-# model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True, progress=True,
-#                                                            num_classes=91)
-model = maskrcnn_resnet50_fpn(pretrained=True, progress=True, num_classes=91)
+    # set the computation device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # load the modle on to the computation device and set to eval mode
+    # device = "cpu"
+    model.to(device).eval()
 
-# set the computation device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# load the modle on to the computation device and set to eval mode
-# device = "cpu"
-model.to(device).eval()
+    # transform to convert the image to tensor
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
 
-# transform to convert the image to tensor
-transform = transforms.Compose([
-    transforms.ToTensor()
-])
+    # python mask_rcnn_images.py --input ../input/image1.jpg
 
-# python mask_rcnn_images.py --input ../input/image1.jpg
+    args_input = "image/cats.jpg"
+    args_threshold = 0.965
 
-args_input = "image/cats.jpg"
-args_threshold = 0.965
-
-image_path = args_input
-image = Image.open(image_path).convert('RGB')
-# keep a copy of the original image for OpenCV functions and applying masks
-orig_image = image.copy()
-# transform the image
-image = transform(image)
-# add a batch dimension
-image = image.unsqueeze(0).to(device)
-masks, boxes, labels = get_outputs(image, model, args_threshold)
-result = draw_segmentation_map(orig_image, masks, boxes, labels)
-# visualize the image
-cv2.imshow('Segmented image', result)
-cv2.waitKey(0)
-# set the save path
-save_path = f"{args_input.split('/')[-1].split('.')[0]}.jpg"
-cv2.imwrite(save_path, result)
+    image_path = args_input
+    image = Image.open(image_path).convert('RGB')
+    # keep a copy of the original image for OpenCV functions and applying masks
+    orig_image = image.copy()
+    # transform the image
+    image = transform(image)
+    # add a batch dimension
+    image = image.unsqueeze(0).to(device)
+    masks, boxes, labels = get_outputs(image, model, args_threshold)
+    result = draw_segmentation_map(orig_image, masks, boxes, labels)
+    # visualize the image
+    cv2.imshow('Segmented image', result)
+    cv2.waitKey(0)
+    # set the save path
+    save_path = f"{args_input.split('/')[-1].split('.')[0]}.jpg"
+    cv2.imwrite(save_path, result)
