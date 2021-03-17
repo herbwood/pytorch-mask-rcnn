@@ -64,10 +64,13 @@ def draw_segmentation_map(image, masks, boxes, labels):
         # apply mask on the image
         cv2.addWeighted(image, alpha, segmentation_map, beta, gamma, image)
         # draw the bounding boxes around the objects
-        cv2.rectangle(image, boxes[i][0], boxes[i][1], color=color,
-                      thickness=2)
+
+        x_min, y_min = map(int, boxes[i][0])
+        x_max, y_max = map(int, boxes[i][1])
+
+        cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=color, thickness=2)
         # put the label text above the objects
-        cv2.putText(image, labels[i], (boxes[i][0][0], boxes[i][0][1] - 10),
+        cv2.putText(image, labels[i], (x_min, y_min - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, color,
                     thickness=2, lineType=cv2.LINE_AA)
 
@@ -89,6 +92,7 @@ model = maskrcnn_resnet50_fpn(pretrained=True, progress=True, num_classes=91)
 # set the computation device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # load the modle on to the computation device and set to eval mode
+# device = "cpu"
 model.to(device).eval()
 
 # transform to convert the image to tensor
