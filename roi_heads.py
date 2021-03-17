@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 
 from torchvision.ops import boxes as box_ops
-
 from torchvision.ops import roi_align
 
 import _utils as det_utils
@@ -353,15 +352,6 @@ class RoIHeads(nn.Module):
         if self.mask_head is None:
             return False
         if self.mask_predictor is None:
-            return False
-        return True
-
-    def has_keypoint(self):
-        if self.keypoint_roi_pool is None:
-            return False
-        if self.keypoint_head is None:
-            return False
-        if self.keypoint_predictor is None:
             return False
         return True
 

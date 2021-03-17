@@ -3,8 +3,7 @@ import torch
 from torch import nn, Tensor
 
 from typing import List, Optional, Dict
-from image_list import ImageList
-
+from _utils import ImageList
 
 class AnchorGenerator(nn.Module):
     """

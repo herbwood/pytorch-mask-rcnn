@@ -5,7 +5,8 @@ from torch.nn import functional as F
 import torchvision
 from typing import List, Tuple, Dict, Optional
 
-from image_list import ImageList
+# from image_list import ImageList
+from _utils import ImageList
 from roi_heads import paste_masks_in_image
 
 

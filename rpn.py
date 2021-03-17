@@ -7,8 +7,8 @@ import torchvision
 from torchvision.ops import boxes as box_ops
 
 import _utils as det_utils
-from image_list import ImageList
-
+# from image_list import ImageList
+from _utils import ImageList
 from typing import List, Optional, Dict, Tuple
 
 # Import AnchorGenerator to keep compatibility.
