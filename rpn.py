@@ -355,3 +355,170 @@ class RegionProposalNetwork(torch.nn.Module):
         return boxes, losses
 
 
+# import torch
+# from torch.nn import functional as F
+# from torch import nn, Tensor
+# from torchvision.ops import boxes as box_ops
+
+# import _utils as det_utils
+# from _utils import ImageList
+# from anchor_utils import AnchorGenerator
+
+
+# class RPNHead(nn.Module):
+
+#     def __init__(self, in_channels, num_anchors):
+#         super(RPNHead, self).__init__()
+#         self.conv = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1)
+#         self.cls_logits = nn.Conv2d(in_channels, num_anchors, kernel_size=1, stride=1)
+#         self.bbox_pred = nn.Conv2d(in_channels, num_anchors * 4, kernel_size=1, stride=1)
+
+#         for layer in self.children():
+#             torch.nn.init.normal_(layer.weight, std=0.01)
+#             torch.nn.init.constant_(layer.bias, 0)
+
+#     def forward(self, x):
+#         logits = []
+#         bbox_reg = []
+
+#         for feature in x:
+#             t = F.relu(self.conv(feature))
+#             logits.append(self.cls_logits(t))
+#             bbox_reg.append(self.bbox_pred(t))
+
+#         return logits, bbox_reg
+
+
+# def permute_and_flatten(layer, N, A, C, H, W):
+#     layer = layer.view(N, -1, C, H, W)
+#     layer = layer.permute(0, 3, 4, 1, 2)
+#     layer = layer.reshape(N, -1, C)
+
+#     return layer
+
+
+# def concat_box_prediuction_layers(box_cls, box_regression):
+#     box_cls_flattened = []
+#     box_regression_flattened = []
+
+#     for box_cls_per_level , box_regression_per_level in zip(box_cls, box_regression):
+#         N, AxC, H, W = box_cls_per_level.shape
+#         Ax4 = box_regression_per_level.shape[1]
+#         A = Ax4 // 4 # number of anchors
+#         C = AxC // A # number of classes
+
+#         box_cls_per_level = permute_and_flatten(box_cls_per_level, N, A, C, H, W)
+#         box_cls_flattened.append(box_cls_per_level) # [N, AxHxW, C]
+#         box_regression_per_level = permute_and_flatten(box_regression_per_level, N, A, 4, H, W)
+#         box_regression_flattened.append(box_regression_per_level) # [N, AxHxW, 4]
+
+#     box_cls = torch.cat(box_cls_flattened, dim=1).flatten(0, -2)
+#     box_regression = torch.cat(box_regression_flattened, dim=1).reshape(-1, 4)
+
+#     return box_cls, box_regression
+
+
+# class RegionProposalNetwork(nn.Module):
+
+#     def __init__(self, anchor_generator, head,
+#                  fg_iou_thresh, bg_iou_thresh,
+#                  batch_size_per_image, positive_fraction,
+#                  pre_nms_top_n, post_nms_top_n, nms_threshold, score_thresh=0.0):
+
+#         super(RegionProposalNetwork, self).__init__()
+#         self.anchor_generator = anchor_generator
+#         self.head = head
+#         self.box_coder = det_utils.BoxCoder(weights=(1.0, 1.0, 1.0, 1.0))
+
+#         self.box_similarity = box_ops.box_iou
+
+#         self.proposal_matcher = det_utils.Matcher(
+#             fg_iou_thresh,
+#             bg_iou_thresh,
+#             allow_low_quality_matches=True
+#         )
+
+#         self.fg_bg_sampler = det_utils.BalancedPositiveNegativeSampler(
+#             batch_size_per_image, positive_fraction
+#         )
+
+#         self._pre_nms_top_n = pre_nms_top_n
+#         self._post_nms_top_n = post_nms_top_n
+#         self.nms_threshold = nms_threshold
+#         self.score_threshold = score_thresh
+#         self.min_size = 1e-3
+
+#     def pre_nms_top_n(self):
+#         if self.training:
+#             return self._pre_nms_top_n['training']
+#         return self._pre_nms_top_n['testing']
+
+#     def post_nms_top_n(self):
+#         if self.training:
+#             return self._post_nms_top_n['training']
+#         return self._post_nms_top_n['testing']
+
+#     def assign_targets_to_anchors(self, anchors, targets):
+#         labels = []
+#         matched_gt_boxes = []
+
+#         for anchors_per_image, targets_per_image in zip(anchors, targets):
+#             gt_boxes = targets_per_image['boxes']
+
+#             if gt_boxes.numel() == 0:
+#                 device = anchors_per_image.device
+#                 matched_gt_boxes_per_image = torch.zeros(anchors_per_image.shape, dtype=torch.float32, device=device)
+#                 labels_per_image = torch.zeros((anchors_per_image.shape[0],), dtype=torch.float32, device=device)
+#             else:
+#                 match_quality_matrix = self.box_boix_similarity(gt_boxes, anchors_per_image)
+#                 matched_idxs = self.proposal_matcher(match_quality_matrix)
+#                 matched_gt_boxes_per_image = gt_boxes[matched_idxs.clamp(min=0)]
+
+#                 labels_per_image = matched_idxs >= 0
+#                 labels_per_image = labels_per_image.to(dtype=torch.float32)
+
+#                 bg_indices = matched_idxs == self.proposal_matcher.BELOW_LOW_THRESHOLD
+#                 labels_per_image[bg_indices] = 0.0
+
+#                 inds_to_discard = matched_idxs == self.proposal_matcher.BETWEEN_THRESHOLDS
+#                 labels_per_image[inds_to_discard] = -1.0
+
+#             labels.append(labels_per_image)
+#             matched_gt_boxes.append(matched_gt_boxes_per_image)
+
+#         return labels, matched_gt_boxes
+
+
+#     def _get_top_n_idx(self, objectness, num_anchors_per_level):
+
+#         r = []
+#         offset = 0
+
+#         for ob in objectness.split(num_anchors_per_level, 1):
+#             num_anchors = ob.shape[1]
+#             pre_nms_top_n = min(self.pre_nms_top_n(), num_anchors)
+#             _, top_n_idx = ob.topk(pre_nms_top_n, dim=1)
+#             r.append(top_n_idx)
+#             offset += num_anchors
+
+#         return torch.cat(r, dim=1)  
+
+    
+
+# if __name__ == "__main__":
+#     from backbone_utils import resnet_fpn_backbone
+
+#     backbone = resnet_fpn_backbone('resnet50', pretrained=True)
+#     x = torch.rand(1, 3, 64, 64)
+#     output = backbone(x)
+#     features = [v for _, v in output.items()]
+#     head = RPNHead(256, 9)
+#     logits, bbox_reg = head(features)
+
+#     for logit in logits:
+#         print(logit.shape)
+
+#     for bbox in bbox_reg:
+#         print(bbox.shape)
+
+
