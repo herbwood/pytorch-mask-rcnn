@@ -12,9 +12,8 @@ import _utils as det_utils
 from typing import Optional, List, Dict, Tuple
 
 
-
 def maskrcnn_inference(x, labels):
-
+    
     mask_prob = x.sigmoid()
 
     # select masks corresponding to the predicted classes
@@ -44,7 +43,6 @@ def expand_boxes(boxes, scale):
     boxes_exp[:, 1] = y_c - h_half
     boxes_exp[:, 3] = y_c + h_half
     return boxes_exp
-
 
 
 def expand_masks(mask, padding):
@@ -100,36 +98,33 @@ def paste_masks_in_image(masks, boxes, img_shape, padding=1):
 
 
 class RoIHeads(nn.Module):
-    __annotations__ = {
-        'box_coder': det_utils.BoxCoder,
-        'proposal_matcher': det_utils.Matcher,
-        'fg_bg_sampler': det_utils.BalancedPositiveNegativeSampler,
-    }
 
     def __init__(self,
                  box_roi_pool,
                  box_head,
                  box_predictor,
-                 # Faster R-CNN training
+
                  fg_iou_thresh, bg_iou_thresh,
                  batch_size_per_image, positive_fraction,
                  bbox_reg_weights,
-                 # Faster R-CNN inference
+
                  score_thresh,
                  nms_thresh,
                  detections_per_img,
-                 # Mask
+
                  mask_roi_pool=None,
                  mask_head=None,
                  mask_predictor=None,
+
                  keypoint_roi_pool=None,
                  keypoint_head=None,
                  keypoint_predictor=None,
                  ):
+
         super(RoIHeads, self).__init__()
 
         self.box_similarity = box_ops.box_iou
-        # assign ground-truth boxes for each proposal
+
         self.proposal_matcher = det_utils.Matcher(
             fg_iou_thresh,
             bg_iou_thresh,
@@ -170,12 +165,12 @@ class RoIHeads(nn.Module):
 
 
     def postprocess_detections(self,
-                               class_logits,    # type: Tensor
-                               box_regression,  # type: Tensor
-                               proposals,       # type: List[Tensor]
-                               image_shapes     # type: List[Tuple[int, int]]
+                               class_logits,   
+                               box_regression,  
+                               proposals,      
+                               image_shapes   
                                ):
-        # type: (...) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]
+
         device = class_logits.device
         num_classes = class_logits.shape[-1]
 
@@ -190,7 +185,9 @@ class RoIHeads(nn.Module):
         all_boxes = []
         all_scores = []
         all_labels = []
+
         for boxes, scores, image_shape in zip(pred_boxes_list, pred_scores_list, image_shapes):
+
             boxes = box_ops.clip_boxes_to_image(boxes, image_shape)
 
             # create labels for each prediction
@@ -228,28 +225,11 @@ class RoIHeads(nn.Module):
         return all_boxes, all_scores, all_labels
 
     def forward(self,
-                features,      # type: Dict[str, Tensor]
-                proposals,     # type: List[Tensor]
-                image_shapes,  # type: List[Tuple[int, int]]
-                targets=None   # type: Optional[List[Dict[str, Tensor]]]
+                features,   
+                proposals,     
+                image_shapes,  
+                targets=None   
                 ):
-        # type: (...) -> Tuple[List[Dict[str, Tensor]], Dict[str, Tensor]]
-        """
-        Args:
-            features (List[Tensor])
-            proposals (List[Tensor[N, 4]])
-            image_shapes (List[Tuple[H, W]])
-            targets (List[Dict])
-        """
-        if targets is not None:
-            for t in targets:
-                # TODO: https://github.com/pytorch/pytorch/issues/26731
-                floating_point_types = (torch.float, torch.double, torch.half)
-                assert t["boxes"].dtype in floating_point_types, 'target boxes must of float type'
-                assert t["labels"].dtype == torch.int64, 'target labels must of int64 type'
-                if self.has_keypoint():
-                    assert t["keypoints"].dtype == torch.float32, 'target keypoints must of float type'
-
 
         labels = None
         regression_targets = None
@@ -264,7 +244,9 @@ class RoIHeads(nn.Module):
 
         boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
         num_images = len(boxes)
+
         for i in range(num_images):
+
             result.append(
                 {
                     "boxes": boxes[i],
@@ -275,18 +257,7 @@ class RoIHeads(nn.Module):
 
         if self.has_mask():
             mask_proposals = [p["boxes"] for p in result]
-            if self.training:
-                assert matched_idxs is not None
-                # during training, only focus on positive boxes
-                num_images = len(proposals)
-                mask_proposals = []
-                pos_matched_idxs = []
-                for img_id in range(num_images):
-                    pos = torch.where(labels[img_id] > 0)[0]
-                    mask_proposals.append(proposals[img_id][pos])
-                    pos_matched_idxs.append(matched_idxs[img_id][pos])
-            else:
-                pos_matched_idxs = None
+            pos_matched_idxs = None
 
             if self.mask_roi_pool is not None:
                 mask_features = self.mask_roi_pool(features, mask_proposals, image_shapes)
