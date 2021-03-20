@@ -4,6 +4,7 @@ from torch import nn, Tensor
 import torch
 from typing import Dict
 
+
 class FeaturePyramidNetwork(nn.Module):
 
     def __init__(self,
@@ -27,6 +28,7 @@ class FeaturePyramidNetwork(nn.Module):
 
         self.extra_blocks = extra_blocks
 
+
     def get_result_from_inner_blocks(self, x, idx):
         num_blocks = len(self.inner_blocks)
         if idx < 0:
@@ -40,6 +42,7 @@ class FeaturePyramidNetwork(nn.Module):
 
         return out
 
+
     def get_result_from_layer_blocks(self, x, idx):
         num_blocks = len(self.layer_blocks)
         if idx < 0:
@@ -52,6 +55,7 @@ class FeaturePyramidNetwork(nn.Module):
             i += 1
 
         return out
+
 
     def forward(self, x : Dict[str, Tensor]):
 
@@ -76,6 +80,7 @@ class FeaturePyramidNetwork(nn.Module):
 
         return out
 
+
 class LastLevelMaxPool(nn.Module):
 
     def forward(self, x, y, names):
@@ -83,6 +88,7 @@ class LastLevelMaxPool(nn.Module):
         x.append(F.max_pool2d(x[-1], 1, 2, 0))
 
         return x, names
+
 
 if __name__ == "__main__":
     m = FeaturePyramidNetwork([10, 20, 30], 5)
