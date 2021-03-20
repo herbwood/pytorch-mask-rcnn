@@ -1,13 +1,9 @@
 from collections import OrderedDict
 import torch
 import torch.nn.functional as F
-
 from torch import nn
-
 from torchvision.ops import MultiScaleRoIAlign
 from _utils import load_state_dict_from_url
-
-# from faster_rcnn import FasterRCNN
 from neck_fpn import resnet_fpn_backbone
 from anchor_generator import AnchorGenerator
 from rpn import RPNHead, RegionProposalNetwork
@@ -256,8 +252,7 @@ class MaskRCNNPredictor(nn.Sequential):
 
 model_urls = {
     'maskrcnn_resnet50_fpn_coco':
-        'https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth',
-}
+        'https://download.pytorch.org/models/maskrcnn_resnet50_fpn_coco-bf2d0c1e.pth',}
 
 
 def maskrcnn_resnet50_fpn(pretrained=False, progress=True,

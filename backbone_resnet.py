@@ -2,17 +2,19 @@ import torch
 import torch.nn as nn
 from _utils import load_state_dict_from_url
 
-__all__ = ['ResNet', 'resnet50', 'resnet101',]
 
 model_urls = {
     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth'}
 
+
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
+
 def conv1x1(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
 
 class Bottleneck(nn.Module):
 
@@ -37,6 +39,7 @@ class Bottleneck(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
+
     def forward(self, x):
         identity = x
 
@@ -58,6 +61,7 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
+
 
 class ResNet(nn.Module):
 
@@ -113,6 +117,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
@@ -130,6 +135,7 @@ class ResNet(nn.Module):
 
         return x
 
+
 def _resnet(arch,
             block,
             layers,
@@ -144,15 +150,18 @@ def _resnet(arch,
 
     return model
 
+
 def resnet50(pretrained=False,
              progress=True,
              **kwargs):
     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress, **kwargs)
 
+
 def resnet101(pretrained=False,
               progress=True,
               **kwargs):
     return _resnet('resnet101', Bottleneck, [3, 4, 23, 3], pretrained, progress, **kwargs)
+
 
 if __name__ == "__main__":
     input = torch.randn((2, 3, 64, 64))
