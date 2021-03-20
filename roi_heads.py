@@ -123,17 +123,6 @@ class RoIHeads(nn.Module):
 
         super(RoIHeads, self).__init__()
 
-        self.box_similarity = box_ops.box_iou
-
-        self.proposal_matcher = det_utils.Matcher(
-            fg_iou_thresh,
-            bg_iou_thresh,
-            allow_low_quality_matches=False)
-
-        self.fg_bg_sampler = det_utils.BalancedPositiveNegativeSampler(
-            batch_size_per_image,
-            positive_fraction)
-
         if bbox_reg_weights is None:
             bbox_reg_weights = (10., 10., 5., 5.)
         self.box_coder = det_utils.BoxCoder(bbox_reg_weights)

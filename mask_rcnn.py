@@ -5,8 +5,6 @@ import torch.nn.functional as F
 from torch import nn
 
 from torchvision.ops import MultiScaleRoIAlign
-
-from _utils import overwrite_eps
 from _utils import load_state_dict_from_url
 
 # from faster_rcnn import FasterRCNN
@@ -274,5 +272,4 @@ def maskrcnn_resnet50_fpn(pretrained=False, progress=True,
         state_dict = load_state_dict_from_url(model_urls['maskrcnn_resnet50_fpn_coco'],
                                               progress=progress)
         model.load_state_dict(state_dict)
-        overwrite_eps(model, 0.0)
     return model

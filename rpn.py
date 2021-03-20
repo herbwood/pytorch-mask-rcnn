@@ -93,19 +93,6 @@ class RegionProposalNetwork(torch.nn.Module):
         self.head = head
         self.box_coder = det_utils.BoxCoder(weights=(1.0, 1.0, 1.0, 1.0))
 
-        # used during training
-        self.box_similarity = box_ops.box_iou
-
-        self.proposal_matcher = det_utils.Matcher(
-            fg_iou_thresh,
-            bg_iou_thresh,
-            allow_low_quality_matches=True,
-        )
-
-        self.fg_bg_sampler = det_utils.BalancedPositiveNegativeSampler(
-            batch_size_per_image, positive_fraction
-        )
-
         # used during testing
         self._pre_nms_top_n = pre_nms_top_n
         self._post_nms_top_n = post_nms_top_n
