@@ -81,21 +81,11 @@ def draw_segmentation_map(image, masks, boxes, labels):
     return image
 
 if __name__ == "__main__":
-    # initialize the model
-    # model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True, progress=True,
-    #                                                            num_classes=91)
+
     model = maskrcnn_resnet50_fpn(pretrained=True, progress=True, num_classes=91)
-
-    # set the computation device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # load the modle on to the computation device and set to eval mode
-    # device = "cpu"
     model.to(device).eval()
-
-    # transform to convert the image to tensor
-    transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
+    transform = transforms.Compose([transforms.ToTensor()])
 
     # python mask_rcnn_images.py --input ../input/image1.jpg
 
@@ -104,17 +94,21 @@ if __name__ == "__main__":
 
     image_path = args_input
     image = Image.open(image_path).convert('RGB')
+
     # keep a copy of the original image for OpenCV functions and applying masks
     orig_image = image.copy()
+
     # transform the image
     image = transform(image)
+
     # add a batch dimension
     image = image.unsqueeze(0).to(device)
     masks, boxes, labels = get_outputs(image, model, args_threshold)
     result = draw_segmentation_map(orig_image, masks, boxes, labels)
+
     # visualize the image
     cv2.imshow('Segmented image', result)
     cv2.waitKey(0)
     # set the save path
-    save_path = f"{args_input.split('/')[-1].split('.')[0]}.jpg"
+    save_path = "image/segmented_cats.jpg"
     cv2.imwrite(save_path, result)

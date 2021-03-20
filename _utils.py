@@ -10,31 +10,22 @@ from collections import OrderedDict
 from torch.hub import load_state_dict_from_url
 
 
-class ImageList(object):
+class ImageList:
 
     def __init__(self, tensors, image_sizes):
 
         self.tensors = tensors
         self.image_sizes = image_sizes
 
-    def to(self, device: torch.device) -> 'ImageList':
+    def to(self, device: torch.device):
         cast_tensor = self.tensors.to(device)
+
         return ImageList(cast_tensor, self.image_sizes)
 
 
+# encodes ground truth boxes
 def encode_boxes(reference_boxes, proposals, weights):
-    # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> torch.Tensor
-    """
-    Encode a set of proposals with respect to some
-    reference boxes
 
-    Args:
-        reference_boxes (Tensor): reference boxes
-        proposals (Tensor): boxes to be encoded
-        weights (Tensor[4]): the weights for ``(x, y, w, h)``
-    """
-
-    # perform some unpacking to make it JIT-fusion friendly
     wx = weights[0]
     wy = weights[1]
     ww = weights[2]
@@ -50,7 +41,6 @@ def encode_boxes(reference_boxes, proposals, weights):
     reference_boxes_x2 = reference_boxes[:, 2].unsqueeze(1)
     reference_boxes_y2 = reference_boxes[:, 3].unsqueeze(1)
 
-    # implementation starts here
     ex_widths = proposals_x2 - proposals_x1
     ex_heights = proposals_y2 - proposals_y1
     ex_ctr_x = proposals_x1 + 0.5 * ex_widths
@@ -71,24 +61,16 @@ def encode_boxes(reference_boxes, proposals, weights):
     return targets
 
 
-class BoxCoder(object):
-    """
-    This class encodes and decodes a set of bounding boxes into
-    the representation used for training the regressors.
-    """
+class BoxCoder:
+
 
     def __init__(self, weights, bbox_xform_clip=math.log(1000. / 16)):
-        # type: (Tuple[float, float, float, float], float) -> None
-        """
-        Args:
-            weights (4-element tuple)
-            bbox_xform_clip (float)
-        """
+
         self.weights = weights
         self.bbox_xform_clip = bbox_xform_clip
 
     def encode(self, reference_boxes, proposals):
-        # type: (List[Tensor], List[Tensor]) -> List[Tensor]
+
         boxes_per_image = [len(b) for b in reference_boxes]
         reference_boxes = torch.cat(reference_boxes, dim=0)
         proposals = torch.cat(proposals, dim=0)
@@ -96,14 +78,7 @@ class BoxCoder(object):
         return targets.split(boxes_per_image, 0)
 
     def encode_single(self, reference_boxes, proposals):
-        """
-        Encode a set of proposals with respect to some
-        reference boxes
 
-        Args:
-            reference_boxes (Tensor): reference boxes
-            proposals (Tensor): boxes to be encoded
-        """
         dtype = reference_boxes.dtype
         device = reference_boxes.device
         weights = torch.as_tensor(self.weights, dtype=dtype, device=device)
@@ -112,7 +87,7 @@ class BoxCoder(object):
         return targets
 
     def decode(self, rel_codes, boxes):
-        # type: (Tensor, List[Tensor]) -> Tensor
+
         assert isinstance(boxes, (list, tuple))
         assert isinstance(rel_codes, torch.Tensor)
         boxes_per_image = [b.size(0) for b in boxes]
@@ -127,17 +102,10 @@ class BoxCoder(object):
         )
         if box_sum > 0:
             pred_boxes = pred_boxes.reshape(box_sum, -1, 4)
+            
         return pred_boxes
 
     def decode_single(self, rel_codes, boxes):
-        """
-        From a set of original boxes and encoded relative box offsets,
-        get the decoded boxes.
-
-        Args:
-            rel_codes (Tensor): encoded boxes
-            boxes (Tensor): reference boxes.
-        """
 
         boxes = boxes.to(rel_codes.dtype)
 
@@ -152,7 +120,6 @@ class BoxCoder(object):
         dw = rel_codes[:, 2::4] / ww
         dh = rel_codes[:, 3::4] / wh
 
-        # Prevent sending too large values into torch.exp()
         dw = torch.clamp(dw, max=self.bbox_xform_clip)
         dh = torch.clamp(dh, max=self.bbox_xform_clip)
 
@@ -166,4 +133,26 @@ class BoxCoder(object):
         pred_boxes3 = pred_ctr_x + torch.tensor(0.5, dtype=pred_ctr_x.dtype, device=pred_w.device) * pred_w
         pred_boxes4 = pred_ctr_y + torch.tensor(0.5, dtype=pred_ctr_y.dtype, device=pred_h.device) * pred_h
         pred_boxes = torch.stack((pred_boxes1, pred_boxes2, pred_boxes3, pred_boxes4), dim=2).flatten(1)
+
         return pred_boxes
+
+if __name__ == "__main__":
+    
+    # encode boxes example 
+    # return encoded target value
+    # use predicted box and ground truth box and randdom weights to encode target values
+    # print 10 encoded boxes with (x, y, w, h)
+    reference_boxes = torch.randint(10, (10, 4))
+    proposals = torch.randint(10, (10, 4))
+    weights = torch.randn(4)
+    
+    encoded_result = encode_boxes(reference_boxes, proposals, weights)
+    print(encoded_result)
+
+
+    # BoxCoder.decode_single example
+    # BoxCoder takes 4-element tuple as a input
+    boxDecoder = BoxCoder(tuple(weights))
+    decoded_result = boxDecoder.decode_single(reference_boxes, encoded_result)
+    print(decoded_result)
+
