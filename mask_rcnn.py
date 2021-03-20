@@ -8,8 +8,8 @@ from torchvision.ops import MultiScaleRoIAlign
 from _utils import load_state_dict_from_url
 
 # from faster_rcnn import FasterRCNN
-from backbone_utils import resnet_fpn_backbone
-from anchor_utils import AnchorGenerator
+from neck_fpn import resnet_fpn_backbone
+from anchor_generator import AnchorGenerator
 from rpn import RPNHead, RegionProposalNetwork
 from roi_heads import RoIHeads
 from transform import GeneralizedRCNNTransform

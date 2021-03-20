@@ -6,7 +6,7 @@ from torchvision.ops import boxes as box_ops
 import _utils as det_utils
 from _utils import ImageList
 
-from anchor_utils import AnchorGenerator
+from anchor_generator import AnchorGenerator
 
 
 class RPNHead(nn.Module):
@@ -212,7 +212,7 @@ class RegionProposalNetwork(torch.nn.Module):
 if __name__ == "__main__":
 
     # RPNHead test
-    from backbone_utils import resnet_fpn_backbone
+    from neck_fpn import resnet_fpn_backbone
 
     backbone = resnet_fpn_backbone('resnet50', pretrained=True)
     images = torch.randn((1, 3, 64, 64))
