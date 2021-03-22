@@ -141,6 +141,6 @@ if __name__ == "__main__":
     print(len(outputs))
 
     for output in outputs:
-        print(output.shape)# 16x16(64/4 x 64/4) x 9
+        print(output.shape)# (16x16(64/4 x 64/4) x 9, 4)
     
     

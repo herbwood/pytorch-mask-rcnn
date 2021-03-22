@@ -10,13 +10,8 @@ from rpn import RPNHead, RegionProposalNetwork
 from roi_heads import RoIHeads
 from transform import GeneralizedRCNNTransform
 
+
 class TwoMLPHead(nn.Module):
-    """
-    Standard heads for FPN-based models
-    Args:
-        in_channels (int): number of input channels
-        representation_size (int): size of the intermediate representation
-    """
 
     def __init__(self, in_channels, representation_size):
         super(TwoMLPHead, self).__init__()
@@ -34,13 +29,6 @@ class TwoMLPHead(nn.Module):
 
 
 class FastRCNNPredictor(nn.Module):
-    """
-    Standard classification + bounding box regression layers
-    for Fast R-CNN.
-    Args:
-        in_channels (int): number of input channels
-        num_classes (int): number of output classes (including background)
-    """
 
     def __init__(self, in_channels, num_classes):
         super(FastRCNNPredictor, self).__init__()
@@ -55,6 +43,7 @@ class FastRCNNPredictor(nn.Module):
         bbox_deltas = self.bbox_pred(x)
 
         return scores, bbox_deltas
+
 
 class MaskRCNN(nn.Module):
     
@@ -212,31 +201,29 @@ class MaskRCNN(nn.Module):
 
 class MaskRCNNHeads(nn.Sequential):
     def __init__(self, in_channels, layers, dilation):
-        """
-        Args:
-            in_channels (int): number of input channels
-            layers (list): feature dimensions of each FCN layer
-            dilation (int): dilation rate of kernel
-        """
+
         d = OrderedDict()
         next_feature = in_channels
+
         for layer_idx, layer_features in enumerate(layers, 1):
+
             d["mask_fcn{}".format(layer_idx)] = nn.Conv2d(
                 next_feature, layer_features, kernel_size=3,
                 stride=1, padding=dilation, dilation=dilation)
+
             d["relu{}".format(layer_idx)] = nn.ReLU(inplace=True)
             next_feature = layer_features
 
         super(MaskRCNNHeads, self).__init__(d)
+
         for name, param in self.named_parameters():
             if "weight" in name:
                 nn.init.kaiming_normal_(param, mode="fan_out", nonlinearity="relu")
-            # elif "bias" in name:
-            #     nn.init.constant_(param, 0)
 
 
 class MaskRCNNPredictor(nn.Sequential):
     def __init__(self, in_channels, dim_reduced, num_classes):
+
         super(MaskRCNNPredictor, self).__init__(OrderedDict([
             ("conv5_mask", nn.ConvTranspose2d(in_channels, dim_reduced, 2, 2, 0)),
             ("relu", nn.ReLU(inplace=True)),
@@ -246,8 +233,6 @@ class MaskRCNNPredictor(nn.Sequential):
         for name, param in self.named_parameters():
             if "weight" in name:
                 nn.init.kaiming_normal_(param, mode="fan_out", nonlinearity="relu")
-            # elif "bias" in name:
-            #     nn.init.constant_(param, 0)
 
 
 model_urls = {
@@ -259,7 +244,6 @@ def maskrcnn_resnet50_fpn(pretrained=False, progress=True,
                           num_classes=91, pretrained_backbone=True, trainable_backbone_layers=None, **kwargs):
     
     if pretrained:
-        # no need to download the backbone if pretrained is set
         pretrained_backbone = False
     backbone = resnet_fpn_backbone('resnet50', pretrained_backbone)
     model = MaskRCNN(backbone, num_classes, **kwargs)
@@ -267,4 +251,5 @@ def maskrcnn_resnet50_fpn(pretrained=False, progress=True,
         state_dict = load_state_dict_from_url(model_urls['maskrcnn_resnet50_fpn_coco'],
                                               progress=progress)
         model.load_state_dict(state_dict)
+
     return model

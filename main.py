@@ -1,4 +1,3 @@
-import numpy as np
 import random
 import torch
 import cv2
@@ -7,6 +6,7 @@ from PIL import Image
 from torchvision.transforms import transforms as transforms
 from mask_rcnn import maskrcnn_resnet50_fpn
 import os
+import numpy as np
 
 coco_names = [
     '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -24,7 +24,7 @@ coco_names = [
 ]
 
 
-def final_prediction(image, model, threshold=0.965):
+def final_prediction(image, model, threshold=0.80):
     with torch.no_grad():
         outputs = model(image) 
 
@@ -45,6 +45,7 @@ def final_prediction(image, model, threshold=0.965):
     boxes = boxes[:thresholded_preds_count]
     
     labels = [coco_names[i] for i in outputs[0]['labels']]
+    print(labels)
 
     return masks, boxes, labels
 
@@ -78,28 +79,24 @@ def draw_boxes_masks(image, masks, boxes, labels):
 
 
 if __name__ == "__main__":
+    # python main.py --input image/cats.jpg --savepath image
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-i', '--input', required=True, 
-    #                     help='path to the input data')
-    # parser.add_argument('-sp', '--savepath', required=True, 
-    #                     help='path to save data')
-    # args = vars(parser.parse_args())
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', required=True, 
+                        help='path to the input data')
+    parser.add_argument('-sp', '--savepath', required=True, 
+                        help='path to save data')
+    args = vars(parser.parse_args())
 
-    # image_path = args['input']
-    # save_path = args['savepath']
-    # filename = os.path.split('/')[-1]
+    image_path = args['input']
+    save_path = args['savepath']
+    filename = os.path.split(image_path)[-1].split('.')[0]
 
     model = maskrcnn_resnet50_fpn(pretrained=True, progress=True, num_classes=91)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device).eval()
     transform = transforms.Compose([transforms.ToTensor()])
 
-    # python mask_rcnn_images.py --input ../input/image1.jpg
-
-    args_input = "image/cats.jpg"
-
-    image_path = args_input
     image = Image.open(image_path).convert('RGB')
     original_image = image.copy()
     image = transform(image)
@@ -110,5 +107,5 @@ if __name__ == "__main__":
 
     cv2.imshow('Segmented image', result)
     cv2.waitKey(0)
-    save_path = "image/segmented_cats.jpg"
+    save_path = f"{save_path}/segmented_{filename}.jpg"
     cv2.imwrite(save_path, result)

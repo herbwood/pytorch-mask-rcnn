@@ -1,5 +1,4 @@
 import torch
-import torchvision
 
 import torch.nn.functional as F
 from torch import nn, Tensor
@@ -8,8 +7,6 @@ from torchvision.ops import boxes as box_ops
 from torchvision.ops import roi_align
 
 import _utils as det_utils
-
-from typing import Optional, List, Dict, Tuple
 
 
 def maskrcnn_inference(x, labels):
@@ -25,6 +22,7 @@ def maskrcnn_inference(x, labels):
     mask_prob = mask_prob.split(boxes_per_image, dim=0)
 
     return mask_prob
+
 
 class RoIHeads(nn.Module):
 
@@ -150,7 +148,7 @@ class RoIHeads(nn.Module):
         box_features = self.box_head(box_features)
         class_logits, box_regression = self.box_predictor(box_features)
 
-        result: List[Dict[str, torch.Tensor]] = []
+        result = []
         losses = {}
 
         boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
