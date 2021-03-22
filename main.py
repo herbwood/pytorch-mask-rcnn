@@ -8,6 +8,17 @@ from mask_rcnn import maskrcnn_resnet50_fpn
 import os
 import numpy as np
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--input', required=True, 
+                    help='path to the input data')
+parser.add_argument('-sp', '--savepath', required=True, 
+                    help='path to save data')
+parser.add_argument('-th', '--threshold', required=True, type=float,
+help='mask threshold')
+args = vars(parser.parse_args())
+
+
 coco_names = [
     '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
     'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'N/A', 'stop sign',
@@ -24,7 +35,7 @@ coco_names = [
 ]
 
 
-def final_prediction(image, model, threshold=0.80):
+def final_prediction(image, model, threshold=0.65):
     with torch.no_grad():
         outputs = model(image) 
 
@@ -45,7 +56,6 @@ def final_prediction(image, model, threshold=0.80):
     boxes = boxes[:thresholded_preds_count]
     
     labels = [coco_names[i] for i in outputs[0]['labels']]
-    print(labels)
 
     return masks, boxes, labels
 
@@ -78,18 +88,10 @@ def draw_boxes_masks(image, masks, boxes, labels):
     return image
 
 
-if __name__ == "__main__":
-    # python main.py --input image/cats.jpg --savepath image
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', required=True, 
-                        help='path to the input data')
-    parser.add_argument('-sp', '--savepath', required=True, 
-                        help='path to save data')
-    args = vars(parser.parse_args())
-
+def main(args):
     image_path = args['input']
     save_path = args['savepath']
+    threshold = args['threshold']
     filename = os.path.split(image_path)[-1].split('.')[0]
 
     model = maskrcnn_resnet50_fpn(pretrained=True, progress=True, num_classes=91)
@@ -102,10 +104,16 @@ if __name__ == "__main__":
     image = transform(image)
 
     image = image.unsqueeze(0).to(device)
-    masks, boxes, labels = final_prediction(image, model)
+    masks, boxes, labels = final_prediction(image, model, threshold=threshold)
     result = draw_boxes_masks(original_image, masks, boxes, labels)
 
     cv2.imshow('Segmented image', result)
     cv2.waitKey(0)
     save_path = f"{save_path}/segmented_{filename}.jpg"
     cv2.imwrite(save_path, result)
+
+
+if __name__ == "__main__":
+    # python main.py --i image/people.png -sp segmented -th 0.80
+    # python main.py --input image/cats.jpg --savepath segmented --threshold 0.75
+    main(args)
